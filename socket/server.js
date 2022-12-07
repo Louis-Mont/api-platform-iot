@@ -5,6 +5,7 @@ const MIN_WATER_LEVEL = 400;
 const MAX_WATER_LEVEL = 600;
 const LOW = "4";
 const HIGH = "5";
+const RGB = { R: LOW, G: LOW, B: LOW };
 // var storage = require("./storage")
 require('dotenv').config()
 
@@ -26,7 +27,7 @@ serialport.pipe(xbeeAPI.parser);
 xbeeAPI.builder.pipe(serialport);
 
 serialport.on("open", function () {
-  let command = "D0"; // "NI"
+  let command = "D1"; // "NI"
 
   var frame_obj = { // AT Request to be sent
     type: C.FRAME_TYPE.AT_COMMAND,
@@ -43,19 +44,38 @@ serialport.on("open", function () {
   };
   xbeeAPI.builder.write(frame_obj);
 
-  /*
-  frame_obj = {
-    type: C.FRAME_TYPE.AT_COMMAND,
-    command: "D0",
-    commandParameter: [],
-  }
-  xbeeAPI.builder.write(frame_obj);
-/* */
 });
 
 // All frames parsed by the XBee will be emitted here
 
 // storage.listSensors().then((sensors) => sensors.forEach((sensor) => console.log(sensor.data())))
+
+function waterLevel(level) {
+
+  if (level < MIN_WATER_LEVEL) {
+    console.log("LOW LEVEL");
+
+    frame_obj = { // AT Request to be sent
+      type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
+      destination64: "0013A20041C34AB8",
+      command: "D0", // PIN that activates or deactivate the relay
+      commandParameter: [LOW],
+    };
+    xbeeAPI.builder.write(frame_obj);
+  }
+
+  if (level > MAX_WATER_LEVEL) {
+    console.log("HIGH LEVEL");
+
+    frame_obj = { // AT Request to be sent
+      type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
+      destination64: "0013A20041C34AB8",
+      command: "D0", // PIN that activates or deactivate the relay
+      commandParameter: [HIGH],
+    };
+    xbeeAPI.builder.write(frame_obj);
+  }
+}
 
 xbeeAPI.parser.on("data", function (frame) {
 
@@ -78,33 +98,58 @@ xbeeAPI.parser.on("data", function (frame) {
   } else if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
 
     console.log("ZIGBEE_IO_DATA_SAMPLE_RX")
-    // console.log(frame);
-    console.log(frame.analogSamples.AD0);
-    let water_level = frame.analogSamples.AD0;
-    
-    if (water_level < MIN_WATER_LEVEL) {
-      console.log("LOW LEVEL");
+    console.log(frame);
+    console.log({ RGB });
+    // console.log(frame.analogSamples.AD0);
+    // waterLevel(frame.analogSamples.AD0);
 
-      frame_obj = { // AT Request to be sent
-        type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
-        destination64: "0013A20041C34AB8",
-        command: "D0", // PIN that activates or deactivate the "relais"
-        commandParameter: [LOW],
-      };
-      xbeeAPI.builder.write(frame_obj);
+    let command = "D0";
+    let ilux = frame.analogSamples.AD1;
+    let invertLux = (I) => I == HIGH ? LOW : HIGH;
+    if(ilux < 50){
+      RGB.R = HIGH;
+      RGB.G = LOW;
+      RGB.B = HIGH;
+    }
+    if (ilux > 50) {
+      RGB.R = LOW;
+      RGB.G = HIGH;
+      RGB.B = HIGH;
+      //RGB.R = invertLux(RGB.R);
+    }
+    if(ilux > 150){
+      RGB.G = HIGH;
+      RGB.B = LOW;
+      //RGB.G = invertLux(RGB.G);
+    }
+    if(ilux > 250){
+      RGB.R = HIGH;
+      RGB.G = HIGH;
+      RGB.B = LOW;
+      //RGB.B = invertLux(RGB.B);
     }
 
-    if (water_level > MAX_WATER_LEVEL) {
-      console.log("HIGH LEVEL");
+    //RGB.R = RGB.R == LOW ? HIGH : LOW;
+    //RGB.G = RGB.G == LOW ? HIGH : LOW;
+    //RGB.B = RGB.B == LOW ? HIGH : LOW;
 
-      frame_obj = { // AT Request to be sent
-        type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
-        destination64: "0013A20041C34AB8",
-        command: "D0", // PIN that activates or deactivate the "relais"
-        commandParameter: [HIGH],
-      };
-      xbeeAPI.builder.write(frame_obj);
-    }
+    let frame_obj = { // AT Request to be sent
+      type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
+      destination64: "0013A20041C34AB8",
+      command: command,
+      commandParameter: [RGB.R],
+    };
+    xbeeAPI.builder.write(frame_obj);
+
+    frame_obj.command = "D1";
+    frame_obj.commandParameter = [RGB.G];
+    xbeeAPI.builder.write(frame_obj);
+
+    frame_obj.command = "D2";
+    frame_obj.commandParameter = [RGB.B];
+    xbeeAPI.builder.write(frame_obj);
+    /**/
+
     // storage.registerSample(frame.remote64,frame.analogSamples.AD0 )
 
   } else if (C.FRAME_TYPE.REMOTE_COMMAND_RESPONSE === frame.type) {
