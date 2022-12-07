@@ -2,6 +2,9 @@ var SerialPort = require('serialport');
 var xbee_api = require('xbee-api');
 var C = xbee_api.constants;
 const MIN_WATER_LEVEL = 400;
+const MAX_WATER_LEVEL = 600;
+const LOW = "4";
+const HIGH = "5";
 // var storage = require("./storage")
 require('dotenv').config()
 
@@ -39,7 +42,7 @@ serialport.on("open", function () {
     commandParameter: [],
   };
   xbeeAPI.builder.write(frame_obj);
-  
+
   /*
   frame_obj = {
     type: C.FRAME_TYPE.AT_COMMAND,
@@ -78,14 +81,36 @@ xbeeAPI.parser.on("data", function (frame) {
     // console.log(frame);
     console.log(frame.analogSamples.AD0);
     let water_level = frame.analogSamples.AD0;
-    if(water_level < MIN_WATER_LEVEL){
-      // TODO Create frame to activate "electrovanne"
+    
+    if (water_level < MIN_WATER_LEVEL) {
+      console.log("LOW LEVEL");
+
+      frame_obj = { // AT Request to be sent
+        type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
+        destination64: "0013A20041C34AB8",
+        command: "D0", // PIN that activates or deactivate the "relais"
+        commandParameter: [LOW],
+      };
+      xbeeAPI.builder.write(frame_obj);
+    }
+
+    if (water_level > MAX_WATER_LEVEL) {
+      console.log("HIGH LEVEL");
+
+      frame_obj = { // AT Request to be sent
+        type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
+        destination64: "0013A20041C34AB8",
+        command: "D0", // PIN that activates or deactivate the "relais"
+        commandParameter: [HIGH],
+      };
+      xbeeAPI.builder.write(frame_obj);
     }
     // storage.registerSample(frame.remote64,frame.analogSamples.AD0 )
 
   } else if (C.FRAME_TYPE.REMOTE_COMMAND_RESPONSE === frame.type) {
     console.log("REMOTE_COMMAND_RESPONSE")
   } else {
+    console.debug(C.FRAME_TYPE[frame.type]);
     console.debug(frame);
     let dataReceived = String.fromCharCode.apply(null, frame.commandData)
     console.log(dataReceived);
