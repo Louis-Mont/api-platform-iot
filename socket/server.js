@@ -1,18 +1,18 @@
 var SerialPort = require('serialport');
 var xbee_api = require('xbee-api');
 var C = xbee_api.constants;
-var storage = require("./storage")
+const MIN_WATER_LEVEL = 400;
+// var storage = require("./storage")
 require('dotenv').config()
-
 
 const SERIAL_PORT = process.env.SERIAL_PORT;
 
 var xbeeAPI = new xbee_api.XBeeAPI({
-  api_mode: 2
+  api_mode: 2,
 });
 
 let serialport = new SerialPort(SERIAL_PORT, {
-  baudRate: process.env.SERIAL_BAUDRATE || 9600,
+  baudRate: 9600,
 }, function (err) {
   if (err) {
     return console.log('Error: ', err.message)
@@ -23,22 +23,31 @@ serialport.pipe(xbeeAPI.parser);
 xbeeAPI.builder.pipe(serialport);
 
 serialport.on("open", function () {
+  let command = "D0"; // "NI"
+
   var frame_obj = { // AT Request to be sent
     type: C.FRAME_TYPE.AT_COMMAND,
-    command: "NI",
+    command: command,
     commandParameter: [],
   };
-
   xbeeAPI.builder.write(frame_obj);
 
   frame_obj = { // AT Request to be sent
     type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
-    destination64: "FFFFFFFFFFFFFFFF",
-    command: "NI",
+    destination64: "0013A20041C34B12",
+    command: command,
     commandParameter: [],
   };
   xbeeAPI.builder.write(frame_obj);
-
+  
+  /*
+  frame_obj = {
+    type: C.FRAME_TYPE.AT_COMMAND,
+    command: "D0",
+    commandParameter: [],
+  }
+  xbeeAPI.builder.write(frame_obj);
+/* */
 });
 
 // All frames parsed by the XBee will be emitted here
@@ -54,20 +63,25 @@ xbeeAPI.parser.on("data", function (frame) {
   if (C.FRAME_TYPE.ZIGBEE_RECEIVE_PACKET === frame.type) {
     console.log("C.FRAME_TYPE.ZIGBEE_RECEIVE_PACKET");
     let dataReceived = String.fromCharCode.apply(null, frame.data);
-    console.log(">> ZIGBEE_RECEIVE_PACKET >", dataReceived);
+    console.log(">> ZIGBEE_RECEIVE_PACKET >", dataReceived); // datareceived
 
   }
 
   if (C.FRAME_TYPE.NODE_IDENTIFICATION === frame.type) {
     // let dataReceived = String.fromCharCode.apply(null, frame.nodeIdentifier);
     console.log("NODE_IDENTIFICATION");
-    storage.registerSensor(frame.remote64)
+    // storage.registerSensor(frame.remote64)
 
   } else if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
 
     console.log("ZIGBEE_IO_DATA_SAMPLE_RX")
-    console.log(frame.analogSamples.AD0)
-    storage.registerSample(frame.remote64,frame.analogSamples.AD0 )
+    // console.log(frame);
+    console.log(frame.analogSamples.AD0);
+    let water_level = frame.analogSamples.AD0;
+    if(water_level < MIN_WATER_LEVEL){
+      // TODO Create frame to activate "electrovanne"
+    }
+    // storage.registerSample(frame.remote64,frame.analogSamples.AD0 )
 
   } else if (C.FRAME_TYPE.REMOTE_COMMAND_RESPONSE === frame.type) {
     console.log("REMOTE_COMMAND_RESPONSE")
