@@ -58,7 +58,7 @@ function waterLevel(level) {
     frame_obj = { // AT Request to be sent
       type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
       destination64: "0013A20041C34AB8",
-      command: "D0", // PIN that activates or deactivate the relay
+      command: "D0", // PIN that activates or deactivates the relay
       commandParameter: [LOW],
     };
     xbeeAPI.builder.write(frame_obj);
@@ -70,7 +70,7 @@ function waterLevel(level) {
     frame_obj = { // AT Request to be sent
       type: C.FRAME_TYPE.REMOTE_AT_COMMAND_REQUEST,
       destination64: "0013A20041C34AB8",
-      command: "D0", // PIN that activates or deactivate the relay
+      command: "D0", // PIN that activates or deactivates the relay
       commandParameter: [HIGH],
     };
     xbeeAPI.builder.write(frame_obj);
@@ -87,7 +87,6 @@ xbeeAPI.parser.on("data", function (frame) {
     console.log("C.FRAME_TYPE.ZIGBEE_RECEIVE_PACKET");
     let dataReceived = String.fromCharCode.apply(null, frame.data);
     console.log(">> ZIGBEE_RECEIVE_PACKET >", dataReceived); // datareceived
-
   }
 
   if (C.FRAME_TYPE.NODE_IDENTIFICATION === frame.type) {
@@ -96,8 +95,8 @@ xbeeAPI.parser.on("data", function (frame) {
     // storage.registerSensor(frame.remote64)
 
   } else if (C.FRAME_TYPE.ZIGBEE_IO_DATA_SAMPLE_RX === frame.type) {
-
-    console.log("ZIGBEE_IO_DATA_SAMPLE_RX")
+    
+    console.log("ZIGBEE_IO_DATA_SAMPLE_RX");
     console.log(frame);
     console.log({ RGB });
     // console.log(frame.analogSamples.AD0);
